@@ -29,12 +29,5 @@ jobs:
       - name: Check PHP Syntax
         run: find src/app/code -name "*.php" -exec php -l {} \;
 
-      - name: Magento Coding Standard
-        run: |
-          composer global require magento/magento-coding-standard
-          ~/.composer/vendor/bin/phpcs app/code --standard=Magento2
-
-      - name: PHPStan Static Analysis
-        run: |
-          composer require --dev phpstan/phpstan
-          vendor/bin/phpstan analyse app/code --level=5
+      - name: PHPStan
+        uses: php-actions/phpstan@v3
