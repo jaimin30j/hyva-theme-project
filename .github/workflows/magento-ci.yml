@@ -1,4 +1,4 @@
-name: Magento 2 CI
+name: Magento 2 CI Pipeline
 
 on:
   push:
@@ -9,19 +9,38 @@ on:
   pull_request:
 
 jobs:
-  magento-tests:
+
+  magento-validation:
 
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.2
+          extensions: mbstring, intl, pdo_mysql, soap, bcmath
+          coverage: none
 
-      - name: Verify PHP Version
-        run: php -v
+      - name: Validate Composer
+        run: composer validate
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Check PHP Syntax
+        run: find app/code -name "*.php" -exec php -l {} \;
+
+      - name: Magento Coding Standard
+        run: |
+          composer global require magento/magento-coding-standard
+          ~/.composer/vendor/bin/phpcs app/code --standard=Magento2
+
+      - name: PHPStan Static Analysis
+        run: |
+          composer require --dev phpstan/phpstan
+          vendor/bin/phpstan analyse app/code --level=5
