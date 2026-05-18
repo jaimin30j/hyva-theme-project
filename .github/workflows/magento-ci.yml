@@ -27,7 +27,7 @@ jobs:
           coverage: none
 
       - name: Check PHP Syntax
-        run: find app/code -name "*.php" -exec php -l {} \;
+        run: find src/app/code -name "*.php" -exec php -l {} \;
 
       - name: Magento Coding Standard
         run: |
