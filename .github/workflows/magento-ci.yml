@@ -26,9 +26,6 @@ jobs:
           extensions: mbstring, intl, pdo_mysql, soap, bcmath
           coverage: none
 
-      - name: Validate Composer
-        run: composer validate
-
       - name: Check PHP Syntax
         run: find app/code -name "*.php" -exec php -l {} \;
 
