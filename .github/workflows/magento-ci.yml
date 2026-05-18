@@ -22,15 +22,12 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.2
+          php-version: 8.3
           extensions: mbstring, intl, pdo_mysql, soap, bcmath
           coverage: none
 
       - name: Validate Composer
         run: composer validate
-
-      - name: Install Composer Dependencies
-        run: composer install --prefer-dist --no-progress
 
       - name: Check PHP Syntax
         run: find app/code -name "*.php" -exec php -l {} \;
