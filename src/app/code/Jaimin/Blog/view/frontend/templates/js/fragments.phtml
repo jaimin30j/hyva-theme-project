@@ -1,0 +1,10 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Magento\Framework\Escaper $escaper */
+
+// getViewFileUrl() resolves to:
+// /pub/static/frontend/Hyva/default/en_US/Jaimin_Blog/js/blog-fragments.js
+// Magento handles versioning and pub/static symlinking automatically.
+$jsUrl = $block->getViewFileUrl('Jaimin_Blog::js/blog-fragments.js');
+?>
+<script src="<?= $escaper->escapeUrl($jsUrl) ?>" defer></script>

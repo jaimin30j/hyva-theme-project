@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      layout="1column"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="content">
+
+            <!-- Load fragments JS before the view component needs it -->
+            <block class="Magento\Framework\View\Element\Template"
+                   name="blog.fragments"
+                   template="Jaimin_Blog::js/fragments.phtml"
+                   before="blog.post.view"/>
+
+            <!-- The post detail Alpine.js component -->
+
+           <block class="Magento\Framework\View\Element\Template" name="blog.post.view" template="Jaimin_Blog::view.phtml">
+                <block name="loading" template="Hyva_Theme::ui/loading.phtml"/>
+            </block>        
+
+        </referenceContainer>
+    </body>
+</page>

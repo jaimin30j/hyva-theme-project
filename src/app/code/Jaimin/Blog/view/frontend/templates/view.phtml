@@ -1,0 +1,344 @@
+<?php
+/** @var \Magento\Framework\View\Element\Template $block */
+/** @var \Magento\Framework\Escaper $escaper */
+
+// Pass url_key from PHP to Alpine.js via a data attribute
+// This avoids inline JS injection — clean and XSS-safe
+$urlKey = $escaper->escapeHtmlAttr(
+    (string)$block->getRequest()->getParam('url_key', '')
+);
+?>
+
+<!-- Reading progress bar — fixed at top, fills as user scrolls -->
+<div id="reading-progress"
+     style="position:fixed;top:0;left:0;height:3px;width:0%;
+            background:linear-gradient(90deg,#3b82f6,#8b5cf6);
+            z-index:999;transition:width .1s linear"
+     aria-hidden="true">
+</div>
+
+<div x-data="blogPostView('<?= $urlKey ?>')"
+     x-init="init()"
+     class="container mx-auto px-4 py-10 max-w-3xl">
+
+    <div x-show="isLoading" class="hyva-loading-indicator py-8">
+        <?= $block->getChildHtml('loading') ?>
+    </div> 
+
+    <!-- 404 state -->
+    <template x-if="!isLoading && notFound">
+        <div class="text-center py-20">
+            <p class="text-6xl mb-4">📄</p>
+            <h1 class="text-2xl font-semibold text-gray-800 mb-2">
+                <?= $escaper->escapeHtml(__('Post not found')) ?>
+            </h1>
+            <p class="text-gray-500 mb-6">
+                <?= $escaper->escapeHtml(__('The post you are looking for does not exist or has been removed.')) ?>
+            </p>
+            <a href="/blog"
+               class="inline-block bg-blue-600 text-white px-6 py-3
+                      rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                <?= $escaper->escapeHtml(__('Back to Blog')) ?>
+            </a>
+        </div>
+    </template>
+
+    <!-- Error state -->
+    <template x-if="!isLoading && error && !notFound">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <p class="text-red-700 text-sm" x-text="error"></p>
+            <button @click="fetchPost()"
+                    class="mt-4 text-blue-600 text-sm hover:underline">
+                <?= $escaper->escapeHtml(__('Try again')) ?>
+            </button>
+        </div>
+    </template>
+
+    <!-- Post content -->
+    <template x-if="!isLoading && post && !notFound">
+        <article>
+
+            <!-- Back link -->
+            <a href="/blog"
+               class="inline-flex items-center gap-1 text-sm text-gray-500
+                      hover:text-blue-600 mb-8 transition-colors group">
+                <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <?= $escaper->escapeHtml(__('All posts')) ?>
+            </a>
+
+            <!-- Post header -->
+            <header class="mb-8">
+                <h1 class="text-3xl font-semibold text-gray-900 mb-4 leading-tight"
+                    x-text="post.title"></h1>
+
+                <!-- Meta row -->
+                <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+
+                    <!-- Author avatar + name -->
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center
+                                    justify-center text-blue-700 font-semibold text-xs"
+                             x-text="authorInitial()">
+                        </div>
+                        <span x-text="post.author"></span>
+                    </div>
+
+                    <span class="text-gray-300">·</span>
+
+                    <!-- Published date -->
+                    <time :datetime="post.created_at"
+                          x-text="formatDate(post.created_at)">
+                    </time>
+
+                    <span class="text-gray-300">·</span>
+
+                    <!-- Estimated read time -->
+                    <span x-text="readTime() + ' min read'"></span>
+
+                    <!-- Updated badge — shown only if updated after creation -->
+                    <template x-if="wasUpdated()">
+                        <span class="inline-flex items-center gap-1 bg-gray-100
+                                     text-gray-600 text-xs px-2 py-1 rounded-full">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            <?= $escaper->escapeHtml(__('Updated')) ?>
+                            <span x-text="formatDate(post.updated_at)"></span>
+                        </span>
+                    </template>
+                </div>
+
+                <!-- Status badge — only shown to logged-in users for disabled posts -->
+                <template x-if="post.status === 0">
+                    <div class="mt-3 inline-flex items-center gap-1 bg-amber-50
+                                border border-amber-200 text-amber-700
+                                text-xs px-3 py-1 rounded-full">
+                        <?= $escaper->escapeHtml(__('Draft — not visible to the public')) ?>
+                    </div>
+                </template>
+            </header>
+
+            <!-- Divider -->
+            <hr class="border-gray-100 mb-8"/>
+            <img src="https://cdn.tailgrids.com/1.0/assets/images/blogs/blog-01/image-01.jpg"
+                 alt="Blog post image"
+                 class="w-full rounded mb-8"
+                 width="1456" height="866"
+                 loading="lazy" />       
+            <!-- Post body — rendered as HTML -->
+            <!-- x-html renders innerHTML — safe here because content
+                 is stored and served from your own Magento DB -->
+            <div class="prose prose-gray max-w-none
+                        prose-headings:font-semibold prose-headings:text-gray-900
+                        prose-p:text-gray-700 prose-p:leading-relaxed
+                        prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                        prose-code:text-blue-800 prose-code:bg-blue-50
+                        prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                        prose-pre:bg-gray-900 prose-pre:text-gray-100"
+                 x-html="post.content">
+            </div>
+
+            <!-- Footer -->
+            <footer class="mt-12 pt-8 border-t border-gray-100">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+
+                    <!-- Author card -->
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center
+                                    justify-center text-blue-700 font-semibold"
+                             x-text="authorInitial()">
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900"
+                               x-text="post.author"></p>
+                            <p class="text-xs text-gray-500">
+                                <?= $escaper->escapeHtml(__('Author')) ?>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Share / copy link -->
+                    <button @click="copyLink()"
+                            class="inline-flex items-center gap-2 border border-gray-200
+                                   rounded-lg px-4 py-2 text-sm text-gray-600
+                                   hover:bg-gray-50 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        <span x-text="copyLabel"></span>
+                    </button>
+                </div>
+
+                <!-- Back to blog -->
+                <div class="mt-6 text-center">
+                    <a href="/blog"
+                       class="inline-block border border-gray-200 rounded-lg
+                              px-6 py-3 text-sm text-gray-600
+                              hover:bg-gray-50 transition-colors">
+                        ← <?= $escaper->escapeHtml(__('Back to all posts')) ?>
+                    </a>
+                </div>
+            </footer>
+
+        </article>
+    </template>
+</div>
+
+<script>
+function blogPostView(urlKey) {
+    return {
+        post:      null,
+        isLoading:   true,
+        error:     null,
+        notFound:  false,
+        copyLabel: '<?= $escaper->escapeJs(__('Copy link')) ?>',
+
+        async init() {
+            // If PHP didn't pass the urlKey (edge case),
+            // extract it from window.location: /blog/my-slug → my-slug
+            if (!urlKey) {
+                const parts = window.location.pathname.replace(/\/$/, '').split('/');
+                urlKey = parts[parts.length - 1] ?? '';
+            }
+
+            // Start reading progress bar tracking
+            this.initProgressBar();
+            await this.fetchPost();
+        },
+
+        async fetchPost() {
+            this.isLoading  = true;
+            this.error    = null;
+            this.notFound = false;
+
+            if (!urlKey) {
+                this.notFound = true;
+                this.isLoading  = false;
+                return;
+            }
+
+            // Use POST_DETAIL fragment — includes content field
+            // POST_CARD (used on list page) deliberately excludes content
+            const query = `
+                ${window.BlogFragments.POST_DETAIL}
+
+                query GetBlogPost($url_key: String!) {
+                    blogPost(url_key: $url_key) {
+                        ...BlogPostDetail
+                    }
+                }
+            `;
+
+            try {
+                const res    = await fetch('/graphql', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({
+                        query,
+                        variables: { url_key: urlKey }
+                    })
+                });
+                const result = await res.json();
+
+                if (result.errors?.length) {
+                    const notFoundErr = result.errors.find(
+                        e => e.extensions?.category === 'graphql-no-such-entity'
+                    );
+                    this.notFound = !!notFoundErr;
+                    this.error    = notFoundErr ? null : result.errors[0].message;
+                } else if (!result.data?.blogPost) {
+                    // blogPost returned null — post doesn't exist
+                    this.notFound = true;
+                } else {
+                    this.post = result.data.blogPost;
+
+                    // Update browser tab title with real post title
+                    document.title = this.post.title + ' — Blog';
+
+                    // Update meta description for SEO
+                    if (this.post.meta_description) {
+                        let meta = document.querySelector('meta[name="description"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.name = 'description';
+                            document.head.appendChild(meta);
+                        }
+                        meta.content = this.post.meta_description;
+                    }
+                }
+            } catch (e) {
+                this.error = '<?= $escaper->escapeJs(__('Could not load post. Please try again.')) ?>';
+                console.error('[Blog Post View]', e);
+            }
+
+            this.isLoading = false;
+        },
+
+        // Reading progress bar — fills as user scrolls through the article
+        initProgressBar() {
+            const bar = document.getElementById('reading-progress');
+            if (!bar) return;
+
+            const update = () => {
+                const doc    = document.documentElement;
+                const total  = doc.scrollHeight - doc.clientHeight;
+                const scrolled = total > 0
+                    ? (window.scrollY / total) * 100
+                    : 0;
+                bar.style.width = Math.min(scrolled, 100) + '%';
+            };
+
+            window.addEventListener('scroll', update, { passive: true });
+            update();
+        },
+
+        // Estimated reading time — 200 words per minute average
+        readTime() {
+            if (!this.post?.content) return 1;
+            // Strip HTML tags to count words in plain text only
+            const text  = this.post.content.replace(/<[^>]+>/g, ' ');
+            const words = text.trim().split(/\s+/).filter(Boolean).length;
+            return Math.max(1, Math.ceil(words / 200));
+        },
+
+        // First letter of author name for avatar
+        authorInitial() {
+            return this.post?.author?.charAt(0)?.toUpperCase() ?? '?';
+        },
+
+        // Show "updated" badge only if updated_at is meaningfully later than created_at
+        wasUpdated() {
+            if (!this.post?.updated_at || !this.post?.created_at) return false;
+            const created = new Date(this.post.created_at).getTime();
+            const updated = new Date(this.post.updated_at).getTime();
+            // Show badge only if updated more than 1 hour after creation
+            return updated - created > 3600000;
+        },
+
+        formatDate(str) {
+            if (!str) return '';
+            return new Date(str).toLocaleDateString('en-AE', {
+                day: 'numeric', month: 'long', year: 'numeric'
+            });
+        },
+
+        async copyLink() {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                this.copyLabel = '<?= $escaper->escapeJs(__('Copied!')) ?>';
+                setTimeout(() => {
+                    this.copyLabel = '<?= $escaper->escapeJs(__('Copy link')) ?>';
+                }, 2000);
+            } catch {
+                this.copyLabel = '<?= $escaper->escapeJs(__('Copy link')) ?>';
+            }
+        }
+    }
+}
+</script>
